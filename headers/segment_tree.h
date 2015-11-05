@@ -1,181 +1,98 @@
-//
-// segment_tree.h
-//
-// segment_tree class with lazy propagation
-//
-// INPUT: vector 
-//
-// OUTPUT: query 
-//
-// Time: 	O(Q(logN)^2) 
-//			Q: query, N vectors
-//
-// Init: segment_tree tree(vector,[](int a, int b){return a+b; });
-// 		in this case(sum), INF must be 0(must not interfere)
+#include <stdio.h>
 
-//INF Should not interfere Process
-#define SEG_INF 0
 
-#include <vector>
-#include <iterator>
-#include <algorithm>
-#include <functional>
+#pragma warning(disable:4996)
+#define MX 1234567
 
+typedef long long int lld;
 using namespace std;
-template<typename type>
-class segment_tree
-{
-private:
-	std::vector<type> vector, tree, lazy;
-	std::function <type(type, type)> process;
-	
-	size_t initilize_(size_t index, size_t start, size_t end)
-	{
-		if (start == end)
-			return this->tree[index] = this->vector[start];
-		else
-			return this->tree[index] = this->process(
-				this->initilize_(index * 2, start, (start + end) / 2),
-				this->initilize_(index * 2 + 1, (start + end) / 2 + 1, end));
-	}
-	type query_(size_t index, size_t start, size_t end, size_t qstart, size_t qend)
-	{
-		if (start > end || end < qstart || start > qend)
-			return SEG_INF;
 
-		if (this->lazy[index])
-		{
-			this->tree[index] += (end - start + 1) * this->lazy[index];
 
-			if (start != end)
-			{
-				this->lazy[index * 2] += this->lazy[index];
-				this->lazy[index * 2 + 1] += this->lazy[index];
-			}
+lld tree[MX * 4];
+lld lazy[MX * 4];
+int len, r;
 
-			this->lazy[index] = 0;
-		}
+void build(int N) {
+   len = 1; r = 1;
+   while (r <= N) {
+      r *= 2;
+      len += r;
+   }
+   int i;
+   for (i = len - r + 1; i <= len - r + N; i++) {
+      scanf("%lld", tree + i);
+   }
+   for (i = len - r + N + 1; i <= len; i++) {
+      tree[i] = 0;
+   }
+   for (i = len - r; i >= 1; i--) {
+      tree[i] = tree[i * 2] + tree[i * 2 + 1];
+   }
+   for (i = 1; i <= len; i++) lazy[i] = 0;
+}
+void update(int node, int start, int end, int l, int r, int val) {
+   if (lazy[node] != 0) {
+      tree[node] += (end - start + 1) * lazy[node];
+      if (start != end) {
+         lazy[node * 2] += lazy[node];
+         lazy[node * 2 + 1] += lazy[node];
+      }
+      lazy[node] = 0;
+   }
+   if (start > r || end < l || start >end) return;
+   if (l <= start && end <= r) {
+      tree[node] += (end - start + 1) * val;
+      if (start != end) {
+         lazy[node * 2] += val;
+         lazy[node * 2 + 1] += val;
+      }
+      return;
+   }
+   int mid = (start + end) / 2;
+   update(node * 2, start, mid, l, r, val);
+   update(node * 2 + 1, mid + 1, end, l, r, val);
+   tree[node] = tree[node * 2] + tree[node * 2 + 1];
+}
+lld query(int node, int start, int end, int l, int r) {
+   if (start > end || start > r || end < l) return 0; //out of range
 
-		if (qstart <= start && qend >= end)
-			return this->tree[index];
+   if (lazy[node] != 0) {
+      tree[node] += (end - start + 1) * lazy[node];
+      if (start != end) {
+         lazy[node * 2] += lazy[node];
+         lazy[node * 2 + 1] += lazy[node];
+      }
+      lazy[node] = 0;
+   }
+   if (l <= start && end <= r) {
+      return tree[node];
+   }
 
-		return this->process(
-			this->query_(2 * index, start, (start + end) / 2, qstart, qend),
-			this->query_(2 * index + 1, (start + end) / 2 + 1, end, qstart, qend));
-	}
-	void update_(size_t index, size_t start, size_t end, size_t ustart, size_t uend, type value)
-	{
-		if (this->lazy[index])
-		{
-			this->tree[index] += (end - start + 1) * this->lazy[index];
+   int mid = (start + end) / 2;
+   return  query(node * 2, start, mid, l, r) + query(node * 2 + 1, mid + 1, end, l, r);
+}
 
-			if (start != end)
-			{
-				this->lazy[index * 2] += this->lazy[index];
-				this->lazy[index * 2 + 1] += this->lazy[index];
-			}
 
-			this->lazy[index] = 0;
-		}
 
-		if (start > end || start > uend || end < ustart)
-			return;
-
-		if (start >= ustart && end <=uend)
-		{
-			this->tree[index] += (end - start + 1) * value;
-
-			if (start != end)
-			{
-				this->lazy[index * 2] += value;
-				this->lazy[index * 2 + 1] += value;
-			}
-			return;
-		}
-
-		this->update_(index * 2, start, (start + end) / 2, ustart, uend, value);
-		this->update_(index * 2 + 1, (start + end) / 2 + 1, end, ustart, uend, value);
-
-		this->tree[index] = this->process(this->tree[index*2], this->tree[index*2+1]);
-		return;
-	}
-public:
-	segment_tree() {}
-	segment_tree(const std::vector<type>& vector)
-	{
-		this->vector = vector;
-	}
-	segment_tree(const std::vector<type>& vector, std::function<type(type, type)> proc)
-	{
-		this->vector = vector;
-		this->process = proc;
-	}
-	void vectorize(const std::vector<type>& vector)
-	{
-		this->vector = vector;
-	}
-	void initilize()
-	{
-		this->tree.assign(1 + 2 * (size_t)pow(2, (size_t)ceil(log2(this->vector.size()))), 0);
-		this->lazy = this->tree;
-
-		this->initilize_(1, 0, this->vector.size() - 1);
-	}
-	type query(size_t start, size_t end)
-	{
-		if (start < 0 || end > this->vector.size() - 1 || start>end)
-			return -1;
-		return this->query_(1, 0, this->vector.size() - 1, start, end);
-	}
-	void update(size_t target, type value)
-	{
-		this->update(target, target, value);
-	}
-	void update(size_t start, size_t end, type value)
-	{
-		if (start < 0 || end > this->vector.size() - 1 || start > end)
-			return;
-		this->update_(1, 0, this->vector.size() - 1, start, end, value);
-	}
-	~segment_tree() {}
-};
-
-/*#include <iostream>
-int main()
-{
-	
-	vector<long long int> v;
-	int n, m, k; cin >> n >> m >> k;
-	while (n--)
-	{
-		int temp; cin >> temp;
-		v.push_back(temp);
-	}
-
-	segment_tree<long long int> tree(v, [](double a, double b)->double {return a + b;});
-	tree.initilize();
-	int q = m + k;
-	int mc = 0, kc = 0;
-	while (q--)
-	{
-		int start,end,value,qu; cin >> qu;
-
-		if (qu - 1)
-		{
-			cin >> start >> end;
-			cout << tree.query(--start, --end) << endl;
-			if (mc == m)
-				return 0;
-			mc++;
-		}
-		else
-		{
-			cin >> start >> end >> value;
-			tree.update(--start, --end, value);
-			if (kc == k)
-				return 0;
-			kc++;
-		}
-	}
-	return 0;
-}*/
+int main(void) {
+   int N, M, K; scanf("%d %d %d", &N, &M, &K);
+   build(N);
+   for (int i = 0; i<M + K; i++) {
+      int type; scanf("%d", &type);
+      if (type == 1) { //update
+         int b, c, d; scanf("%d %d %d", &b, &c, &d);
+         if (b > c) {
+            int t = b; b = c; c = t;
+         }
+         update(1, 0, r- 1, --b, --c, d);
+      }
+      else { //query
+         int b, c; scanf("%d %d", &b, &c);
+         if (b > c) {
+            int t = b; b = c; c = t;
+         }
+         printf("%lld\n", query(1, 0, r- 1, --b ,--c));
+      }
+   }
+   return 0;
+}
